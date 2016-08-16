@@ -152,7 +152,7 @@ public:
 		bool			mClipHorizontal, mClipVertical, mPixelSnap, mLigate;
 		float			mScale = 2.0;
 		float			mLeading = 0.0f;
-		bool			mPremultiply = false;
+		bool			mPremultiply = true;
 		float			mGamma = 2.2f;
 		bool			mUseMinimalShader = false;
 		GlslProgRef		mGlslProg;
@@ -242,9 +242,13 @@ public:
     //! Returns the name of the font
     std::string				getName() const { return mFont.getName(); }
 	//! Returns the ascent of the font
-	float					getAscent() const { return mFont.getAscent(); }
+	float					getAscent() const { const vec2 fontRenderScale = vec2( mFont.getSize() ) / ( mFormat.getSdfScale() * 32.0f ); return mFont.getAscent() * fontRenderScale.y; }
 	//! Returns the descent of the font
-	float					getDescent() const { return mFont.getDescent(); }
+	float					getDescent() const { const vec2 fontRenderScale = vec2( mFont.getSize() ) / ( mFormat.getSdfScale() * 32.0f ); return mFont.getDescent() * fontRenderScale.y; }
+	//! Returns the height of the font
+	float					getHeight() const { const vec2 fontRenderScale = vec2( mFont.getSize() ) / ( mFormat.getSdfScale() * 32.0f ); return mFont.getHeight() * fontRenderScale.y; }
+	//! Returns the leading of the font
+	float					getLeading() const { const vec2 fontRenderScale = vec2( mFont.getSize() ) / ( mFormat.getSdfScale() * 32.0f ); return mFont.getLeading() * fontRenderScale.y; }
 
 	//! Returns the default set of characters for a TextureFont, suitable for most English text, including some common ligatures and accented vowels.
 	//! \c "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890().?!,:;'\"&*=+-/\\@#_[]<>%^llflfiphridséáèà"
