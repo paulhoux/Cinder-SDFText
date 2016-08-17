@@ -242,13 +242,13 @@ public:
     //! Returns the name of the font
     std::string				getName() const { return mFont.getName(); }
 	//! Returns the ascent of the font
-	float					getAscent() const { const vec2 fontRenderScale = vec2( mFont.getSize() ) / ( mFormat.getSdfScale() * 32.0f ); return mFont.getAscent() * fontRenderScale.y; }
+	float					getAscent() const { return mFont.getAscent() * mFont.getSize() / 32.0f; }
 	//! Returns the descent of the font
-	float					getDescent() const { const vec2 fontRenderScale = vec2( mFont.getSize() ) / ( mFormat.getSdfScale() * 32.0f ); return mFont.getDescent() * fontRenderScale.y; }
+	float					getDescent() const { return mFont.getDescent() * mFont.getSize() / 32.0f; }
 	//! Returns the height of the font
-	float					getHeight() const { const vec2 fontRenderScale = vec2( mFont.getSize() ) / ( mFormat.getSdfScale() * 32.0f ); return mFont.getHeight() * fontRenderScale.y; }
+	float					getHeight() const { return mFont.getHeight() * mFont.getSize() / 32.0f; }
 	//! Returns the leading of the font
-	float					getLeading() const { const vec2 fontRenderScale = vec2( mFont.getSize() ) / ( mFormat.getSdfScale() * 32.0f ); return mFont.getLeading() * fontRenderScale.y; }
+	float					getLeading() const { return mFont.getLeading() * mFont.getSize() / 32.0f; }
 
 	//! Returns the default set of characters for a TextureFont, suitable for most English text, including some common ligatures and accented vowels.
 	//! \c "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890().?!,:;'\"&*=+-/\\@#_[]<>%^llflfiphridséáèà"
