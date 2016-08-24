@@ -231,6 +231,8 @@ public:
 
 	//! Returns the size in pixels necessary to render the string \a str with DrawOptions \a options.
 	vec2	measureString( const std::string &str, const DrawOptions &options = DrawOptions() ) const;
+	//! Returns the size in pixels necessary to render the word-wrapped string \a str with DrawOptions \a options.
+	vec2 measureStringWrapped( const std::string & str, const Rectf & fitRect, const DrawOptions & options = DrawOptions() ) const;
     
 	//! Returns a vector of glyph/placement pairs representing \a str, suitable for use with drawGlyphs. Useful for caching placement and optimizing batching.
 	std::vector<std::pair<SdfText::Font::Glyph,vec2>>		getGlyphPlacements( const std::string &str, const DrawOptions &options = DrawOptions() ) const;
