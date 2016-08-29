@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{BAB4EBF4-E361-4E51-B743-C6FDC86A7464}</ProjectGuid>
+    <ProjectGuid>{EFC6A28D-5F52-483E-8667-795AF308C8EF}</ProjectGuid>
     <RootNamespace>Basic</RootNamespace>
     <Keyword>Win32Proj</Keyword>
   </PropertyGroup>
@@ -189,7 +189,7 @@
     <ResourceCompile Include="Resources.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\LanguagesApp.cpp" />
+    <ClCompile Include="..\src\SaveLoadApp.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
