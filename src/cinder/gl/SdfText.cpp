@@ -2219,12 +2219,12 @@ vec2 SdfText::measureString( const std::string &str, const DrawOptions &options 
 
 vec2 SdfText::measureStringWrapped( const std::string &str, const Rectf &fitRect, const DrawOptions &options ) const
 {
-	const SdfText::TextureAtlas::GlyphInfoMap& mGlyphMap = mTextureAtlases->mGlyphInfo;
+	const SdfText::Font::GlyphInfoMap& mGlyphMap = mTextureAtlases->mGlyphInfo;
 	SdfTextBox tbox = SdfTextBox( this ).text( str ).size( (int)fitRect.getWidth(), (int)fitRect.getHeight() ).ligate( options.getLigate() );
 	SdfText::Font::GlyphMeasuresList glyphMeasures = tbox.measureGlyphs( options );
 	if( !glyphMeasures.empty() ) {
 		vec2 result = glyphMeasures.back().second;
-		SdfText::TextureAtlas::GlyphInfoMap::const_iterator glyphInfoIt = mGlyphMap.find( glyphMeasures.back().first );
+		SdfText::Font::GlyphInfoMap::const_iterator glyphInfoIt = mGlyphMap.find( glyphMeasures.back().first );
 		if( glyphInfoIt != mGlyphMap.end() ) {
 			result += glyphInfoIt->second.mOriginOffset + vec2( glyphInfoIt->second.mTexCoords.getSize() ) * mFont.getSize() / 32.0f;
 		}
