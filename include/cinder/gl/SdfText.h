@@ -12,6 +12,7 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
 Copyright (c) 2016, The Cinder Project, All rights reserved.
 This code is intended for use with the Cinder C++ library: http://libcinder.org
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that
@@ -49,7 +50,7 @@ using SdfTextRef = std::shared_ptr<SdfText>;
 //!
 class SdfText {
 public:
-	typedef enum Alignment { LEFT, CENTER, RIGHT, JUSTIFY } Alignment;
+	typedef enum Alignment { LEFT, CENTER, RIGHT } Alignment;
 
 	//! \class Options
 	//!
@@ -133,10 +134,15 @@ public:
 		//! Sets the leading (aka line gap) used adjust the line height when wrapping. Default \c 0
 		DrawOptions&	leading( float value ) { mLeading = value; return *this; }
 
-		//! Returns the horizontal alignment (LEFT, CENTER, RIGHT, JUSTIFY) of the type. Default \c LEFT
+		//! Returns the horizontal alignment (LEFT, CENTER, RIGHT) of the type. Default \c LEFT
 		Alignment		getAlignment() const { return mAlign; }
-		//! Sets the horizontal alignment (LEFT, CENTER, RIGHT, JUSTIFY) of the type. Default \c LEFT
+		//! Sets the horizontal alignment (LEFT, CENTER, RIGHT) of the type. Default \c LEFT
 		DrawOptions&	alignment( Alignment align ) { mAlign = align; return *this; }
+
+		//! Returns whether the type is flushed to both the left and right sides. Default \c false
+		bool			getJustify() const { return mJustify; }
+		//! Sets whether the type is flushed to both the left and right sides. Default \c false
+		DrawOptions&	justify( bool enabled = true ) { mJustify = enabled; return *this; }
 
 		//! Sets whether the TextureFont render premultiplied output. Default \c false
 		DrawOptions&	premultiply( bool premult = true ) { mPremultiply = premult; return *this; }
@@ -158,6 +164,7 @@ public:
 		float			mScale = 2.0;
 		float			mLeading = 0.0f;
 		bool			mPremultiply = true;
+		bool			mJustify = false;
 		float			mGamma = 2.2f;
 		Alignment		mAlign = LEFT;
 		GlslProgRef		mGlslProg;
@@ -184,8 +191,15 @@ public:
 
 		using GlyphMeasure = vec2;
 
+		struct GlyphInfo {
+			uint32_t	mTextureIndex;
+			Area		mTexCoords;
+			vec2		mOriginOffset;
+		};
+
 		using GlyphMetricsMap = std::map<SdfText::Font::Glyph, SdfText::Font::GlyphMetrics>;
 		using GlyphMeasuresList = std::vector<std::pair<SdfText::Font::Glyph, SdfText::Font::GlyphMeasure>>;
+		using GlyphInfoMap = std::unordered_map<SdfText::Font::Glyph, SdfText::Font::GlyphInfo>;
 
 		Font() {}
 		Font( const std::string &name, float size );
@@ -232,6 +246,14 @@ public:
 
 	// ---------------------------------------------------------------------------------------------
 
+	struct CharPlacement {
+		SdfText::Font::Glyph	mGlyph;
+		Rectf					mSrcTexCoords;
+		Rectf					mDstRect;
+	};
+
+	// ---------------------------------------------------------------------------------------------
+
 	virtual ~SdfText();
 
 	//! Creates a new SdfTextRef with font \a font, ensuring that glyphs necessary to render \a supportedChars are renderable, and format \a format
@@ -255,6 +277,13 @@ public:
 	//! Draws the glyphs in \a glyphMeasures clipped by \a clip, with \a offset added to each of the glyph offsets with DrawOptions \a options. \a glyphMeasures is a vector of pairs of glyph indices and offsets for the glyph baselines.
 	void	drawGlyphs( const SdfText::Font::GlyphMeasuresList &glyphMeasures, const Rectf &clip, vec2 offset, const DrawOptions &options = DrawOptions(), const std::vector<ColorA8u> &colors = std::vector<ColorA8u>() );
 
+	//! Returns pairs of texture and final texture and vertex coords for drawing using \a glyphMeasures, \a baseline, and \a options.
+	std::vector<std::pair<uint8_t, std::vector<SdfText::CharPlacement>>>	placeChars( const SdfText::Font::GlyphMeasuresList &glyphMeasures, const vec2 &baseline, const DrawOptions &options = DrawOptions() );
+	//! Returns pairs of texture and final texture and vertex coords for drawing using \a str, \a baseline, and \a options.
+	std::vector<std::pair<uint8_t, std::vector<SdfText::CharPlacement>>>	placeString( const std::string &str, const vec2 &baseline, const DrawOptions &options = DrawOptions() );
+	//! Returns pairs of texture and final texture and vertex coords for wrapped drawing using \a str, \a fitRect,  \a offset, and \a options.
+	std::vector<std::pair<uint8_t, std::vector<SdfText::CharPlacement>>>	placeStringWrapped( const std::string &str, const Rectf &fitRect, const vec2 &offset = vec2(), const DrawOptions &options = DrawOptions() );
+	
 	//! Returns the size in pixels necessary to render the string \a str with DrawOptions \a options.
 	vec2	measureString( const std::string &str, const DrawOptions &options = DrawOptions() ) const;
 	//! Returns the size in pixels necessary to render the word-wrapped string \a str with DrawOptions \a options.
@@ -281,7 +310,7 @@ public:
 	float					getLeading() const { return mFont.getLeading() * mFont.getSize() / 32.0f; }
 
 	//! Returns the default set of characters for a TextureFont, suitable for most English text, including some common ligatures and accented vowels.
-	//! \c "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890().?!,:;'\"&*=+-/\\@#_[]<>%^llflfiphridséáèà"
+	//! \c "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890().?!,:;'\"&*=+-/\\|@#_[]<>%^llflfiphridséáèà"
 	static std::string		defaultChars();
 
 	uint32_t				getNumTextures() const;

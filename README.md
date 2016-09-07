@@ -3,7 +3,7 @@ Based on [msdfgen](https://github.com/Chlumsky/msdfgen) by Viktor Chlumský.
 
 ## Building
 1. Build lib first in ```vc2013```
-1. Build samples in ```smaples```
+1. Build samples in ```samples```
 
 ## Windows only for now! Linux and OS X coming soon!
 
@@ -11,3 +11,8 @@ Based on [msdfgen](https://github.com/Chlumsky/msdfgen) by Viktor Chlumský.
 
 
 ![FontSizes](https://cdn-standard.discourse.org/uploads/libcinder/original/1X/a12d8f8322b86763859022e6f25bfd4b54815828.png)
+
+
+![StarWars](https://cdn-standard.discourse.org/uploads/libcinder/optimized/1X/4743384cafd790e1bbcbf102288a2623b78c376c_1_690x404.png)
+
+![MeshPages](http://discourse.libcinder.org/uploads/libcinder/original/1X/e411bb26f85e2f82d361c187d183cc11c97b04b3.png)
