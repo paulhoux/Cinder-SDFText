@@ -2210,7 +2210,7 @@ vec2 SdfText::measureString( const std::string &str, const DrawOptions &options 
 		if( glyphInfoIt != mGlyphMap.end() ) {
 			result += glyphInfoIt->second.mOriginOffset + vec2( glyphInfoIt->second.mTexCoords.getSize() );
 		}
-		return result * mFont.getSize() / 32.0f;
+		return result;
 	}
 	else {
 		return vec2();
@@ -2226,7 +2226,7 @@ vec2 SdfText::measureStringWrapped( const std::string &str, const Rectf &fitRect
 		vec2 result = glyphMeasures.back().second;
 		SdfText::Font::GlyphInfoMap::const_iterator glyphInfoIt = mGlyphMap.find( glyphMeasures.back().first );
 		if( glyphInfoIt != mGlyphMap.end() ) {
-			result += glyphInfoIt->second.mOriginOffset + vec2( glyphInfoIt->second.mTexCoords.getSize() ) * mFont.getSize() / 32.0f;
+			result += glyphInfoIt->second.mOriginOffset + vec2( glyphInfoIt->second.mTexCoords.getSize() );
 		}
 		return result;
 	}
