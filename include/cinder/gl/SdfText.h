@@ -195,6 +195,7 @@ public:
 			uint32_t	mTextureIndex;
 			Area		mTexCoords;
 			vec2		mOriginOffset;
+			vec2		mSize;
 		};
 
 		using GlyphMetricsMap = std::map<SdfText::Font::Glyph, SdfText::Font::GlyphMetrics>;

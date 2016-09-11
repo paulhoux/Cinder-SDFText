@@ -43,6 +43,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "cinder/Text.h"
 #include "cinder/Unicode.h"
 #include "cinder/Utilities.h"
+#include "cinder/BinPacker.h"
 
 #include "cinder/app/App.h"
 
@@ -196,6 +197,18 @@ static std::string kSdfFragShader =
 
 static gl::GlslProgRef sDefaultShader;
 
+class ScopedTimer {
+public:
+	ScopedTimer( const char *name ) : mName( name ), mTimer(true) {}
+	~ScopedTimer(){
+		mTimer.stop();
+		CI_LOG_I( mName << ":" << mTimer.getSeconds() );
+	}
+private:
+	Timer       mTimer;
+	std::string mName;
+};
+
 // =================================================================================================
 // SdfText::TextureAtlas
 // =================================================================================================
@@ -246,7 +259,7 @@ private:
 	//! Base scale that SDF generator uses is size 32 at 72 DPI. A scale of 1.5, 2.0, and 3.0 translates to size 48, 64 and 96 and 72 DPI.
 	vec2						mSdfScale = vec2( 1.0f );
 	vec2						mSdfPadding = vec2( 2.0f );
-	ivec2						mSdfBitmapSize = ivec2( 0 );
+	//ivec2						mSdfBitmapSize = ivec2( 0 );
 	vec2						mMaxGlyphSize = vec2( 0.0f );
 	float						mMaxAscent = 0.0f;
 	float						mMaxDescent = 0.0f;
@@ -261,84 +274,150 @@ SdfText::TextureAtlas::TextureAtlas( FT_Face face, const SdfText::Format &format
 {
 	const ivec2& tileSpacing = format.getSdfTileSpacing();
 
-	// CW (TTF) vs CCW (OTF) - SDF needs to be inverted if font is OTF
-	bool invertSdf = ( std::string( "OTTO" ) ==  std::string( reinterpret_cast<const char *>( face->stream->base ) ) );
-
-	// Build glyph information that will be needed later
-	for( const auto& glyphIndex : glyphIndices ) {
-		// Glyph bounds, 
-		msdfgen::Shape shape;
-		if( msdfgen::loadGlyph( shape, face, glyphIndex ) ) {
-			double l, b, r, t;
-			l = b = r = t = 0.0;
-			shape.bounds( l, b, r, t );
-			// Glyph bounds
-			Rectf bounds = Rectf( 
-				static_cast<float>( l ), 
-				static_cast<float>( b ), 
-				static_cast<float>( r ), 
-				static_cast<float>( t ) );
-			mGlyphInfo[glyphIndex].mOriginOffset = vec2( l, b );
-			// Max glyph size
-			mMaxGlyphSize.x = std::max( mMaxGlyphSize.x, bounds.getWidth() );
-			mMaxGlyphSize.y = std::max( mMaxGlyphSize.y, bounds.getHeight() );
-			// Max ascent, descent
-			mMaxAscent = std::max( mMaxAscent, static_cast<float>( t ) );
-			mMaxDescent = std::max( mMaxAscent, static_cast<float>( std::fabs( b ) ) );
-			//CI_LOG_I( (char)ch << " : " << mGlyphInfo[glyphIndex].mOriginOffset );
-		}	
+	// Build glyph information that will be needed later // PAUL: we should change this to a variable rectangle per glyph for maximum efficiency.
+	{
+		ScopedTimer t( "Build glyph information" );
+		for( const auto& glyphIndex : glyphIndices ) {
+			// Glyph bounds, 
+			msdfgen::Shape shape;
+			if( msdfgen::loadGlyph( shape, face, glyphIndex ) ) {
+				double l, b, r, t;
+				l = b = r = t = 0.0;
+				shape.bounds( l, b, r, t );
+				// Glyph bounds
+				Rectf bounds = Rectf( 
+					static_cast<float>( l ), 
+					static_cast<float>( b ), 
+					static_cast<float>( r ), 
+					static_cast<float>( t ) );
+				mGlyphInfo[glyphIndex].mOriginOffset = vec2( l, b );
+				mGlyphInfo[glyphIndex].mSize = bounds.getSize();
+				// Max glyph size
+				mMaxGlyphSize.x = std::max( mMaxGlyphSize.x, bounds.getWidth() );
+				mMaxGlyphSize.y = std::max( mMaxGlyphSize.y, bounds.getHeight() );
+				// Max ascent, descent
+				mMaxAscent = std::max( mMaxAscent, static_cast<float>( t ) );
+				mMaxDescent = std::max( mMaxDescent, static_cast<float>( std::fabs( b ) ) );
+				//CI_LOG_I( (char)ch << " : " << mGlyphInfo[glyphIndex].mOriginOffset );
+			}	
+		}
 	}
 
-	// Determine render bitmap size
-	mSdfBitmapSize = SdfText::TextureAtlas::calculateSdfBitmapSize( mSdfScale, mSdfPadding, mMaxGlyphSize );
+	//// Determine render bitmap size
+	//mSdfBitmapSize = SdfText::TextureAtlas::calculateSdfBitmapSize( mSdfScale, mSdfPadding, mMaxGlyphSize );
 	// Determine glyph counts (per texture atlas)
-	const size_t numGlyphColumns   = ( format.getTextureWidth()  / ( mSdfBitmapSize.x + tileSpacing.x ) );
-	const size_t numGlyphRows      = ( format.getTextureHeight() / ( mSdfBitmapSize.y + tileSpacing.y ) );
-	const size_t numGlyphsPerAtlas = numGlyphColumns * numGlyphRows;
+	//const size_t numGlyphColumns   = ( format.getTextureWidth()  / ( mSdfBitmapSize.x + tileSpacing.x ) );
+	//const size_t numGlyphRows      = ( format.getTextureHeight() / ( mSdfBitmapSize.y + tileSpacing.y ) );
+	//const size_t numGlyphsPerAtlas = numGlyphColumns * numGlyphRows;
 	
 	// Render position for each glyph
 	struct RenderGlyph {
+		RenderGlyph() {}
+		RenderGlyph( uint32_t i, const ivec2 &p, const ivec2 &s )
+			: glyphIndex(i), position(p), size(s) {}
+		
 		uint32_t glyphIndex;
 		ivec2    position;
+		ivec2    size;
 	};
 
+	//std::vector<std::vector<RenderGlyph>> renderAtlases;
+
+	//// Build the atlases
+	//size_t curRenderIndex = 0;
+	//ivec2 curRenderPos = ivec2( 0 );
+	//std::vector<RenderGlyph> curRenderGlyphs;
+	//for( std::vector<SdfText::Font::Glyph>::const_iterator glyphIndexIt = glyphIndices.begin(); glyphIndexIt != glyphIndices.end() ;  ) {
+	//	// Build render glyph
+	//	RenderGlyph renderGlyph;
+	//	renderGlyph.glyphIndex = *glyphIndexIt;
+	//	renderGlyph.position.x = curRenderPos.x;
+	//	renderGlyph.position.y = curRenderPos.y;
+	//	
+	//	// Add to render atlas
+	//	curRenderGlyphs.push_back( renderGlyph );
+
+	//	// Increment index
+	//	++curRenderIndex;
+	//	// Increment glyph index iterator
+	//	++glyphIndexIt;
+	//	// Advance horizontal position
+	//	curRenderPos.x += mSdfBitmapSize.x;
+	//	curRenderPos.x += tileSpacing.x;
+	//	// Move to next row if needed
+	//	if( 0 == ( curRenderIndex % numGlyphColumns ) ) {
+	//		curRenderPos.x = 0;
+	//		curRenderPos.y += mSdfBitmapSize.y;
+	//		curRenderPos.y += tileSpacing.y;
+	//	}
+
+	//	if( ( numGlyphsPerAtlas == curRenderIndex ) || ( glyphIndices.end() == glyphIndexIt ) ) {
+	//		// Copy current atlas
+	//		renderAtlases.push_back( curRenderGlyphs );
+	//		// Reset values
+	//		curRenderIndex = 0;
+	//		curRenderPos = ivec2( 0 );
+	//		curRenderGlyphs.clear();
+	//	}
+	//}
+
+	// PAUL: use multi-bin packer to determine the best distribution of glyphs over the atlases instead.
 	std::vector<std::vector<RenderGlyph>> renderAtlases;
 
-	// Build the atlases
-	size_t curRenderIndex = 0;
-	ivec2 curRenderPos = ivec2( 0 );
-	std::vector<RenderGlyph> curRenderGlyphs;
-	for( std::vector<SdfText::Font::Glyph>::const_iterator glyphIndexIt = glyphIndices.begin(); glyphIndexIt != glyphIndices.end() ;  ) {
-		// Build render glyph
-		RenderGlyph renderGlyph;
-		renderGlyph.glyphIndex = *glyphIndexIt;
-		renderGlyph.position.x = curRenderPos.x;
-		renderGlyph.position.y = curRenderPos.y;
-		
-		// Add to render atlas
-		curRenderGlyphs.push_back( renderGlyph );
+	{
+		ScopedTimer t( "Bin packing" );
 
-		// Increment index
-		++curRenderIndex;
-		// Increment glyph index iterator
-		++glyphIndexIt;
-		// Advance horizontal position
-		curRenderPos.x += mSdfBitmapSize.x;
-		curRenderPos.x += tileSpacing.x;
-		// Move to next row if needed
-		if( 0 == ( curRenderIndex % numGlyphColumns ) ) {
-			curRenderPos.x = 0;
-			curRenderPos.y += mSdfBitmapSize.y;
-			curRenderPos.y += tileSpacing.y;
+		/*
+		std::vector<Area> areas;
+		for( std::vector<SdfText::Font::Glyph>::const_iterator glyphIndexIt = glyphIndices.begin(); glyphIndexIt != glyphIndices.end(); ++glyphIndexIt )
+			areas.emplace_back( ivec2(0), SdfText::TextureAtlas::calculateSdfBitmapSize( mSdfScale, mSdfPadding, mGlyphInfo[*glyphIndexIt].mSize ) );
+	
+		MultiBinPacker packer = MultiBinPacker().size( (uint32_t)format.getTextureWidth(), (uint32_t)format.getTextureHeight() );
+		auto packed = packer.insert( areas );
+
+		std::sort( packed.begin(), packed.end(), &PackedArea::sortByOrder );
+		auto ptr = packed.data();
+
+		for( std::vector<SdfText::Font::Glyph>::const_iterator glyphIndexIt = glyphIndices.begin(); glyphIndexIt != glyphIndices.end(); ++glyphIndexIt ){
+			auto bin = ptr->getBin();
+			if( bin >= renderAtlases.size() )
+				renderAtlases.resize( bin + 1 );
+
+			renderAtlases[bin].emplace_back( *glyphIndexIt, ptr->getUL(), ptr->getSize() );
+			ptr++;
+		}
+		*/
+		
+		binpack::ContentAccumulator<uint32_t> input;
+		{
+			ScopedTimer t( "- Create input array" );
+			for( std::vector<SdfText::Font::Glyph>::const_iterator glyphIndexIt = glyphIndices.begin(); glyphIndexIt != glyphIndices.end(); ++glyphIndexIt ){
+				input += binpack::Content<uint32_t>( *glyphIndexIt, SdfText::TextureAtlas::calculateSdfBitmapSize( mSdfScale, mSdfPadding, mGlyphInfo[*glyphIndexIt].mSize ) );
+			}
+		}
+		{
+			ScopedTimer t( "- Sort input array" );
+			input.sort();
+		}
+		
+		binpack::CanvasArray<uint32_t> canvases{ (uint16_t)format.getTextureWidth(), (uint16_t)format.getTextureHeight() };
+		{
+			ScopedTimer t( "- Place items on canvases" );
+			canvases.place( input );
 		}
 
-		if( ( numGlyphsPerAtlas == curRenderIndex ) || ( glyphIndices.end() == glyphIndexIt ) ) {
-			// Copy current atlas
-			renderAtlases.push_back( curRenderGlyphs );
-			// Reset values
-			curRenderIndex = 0;
-			curRenderPos = ivec2( 0 );
-			curRenderGlyphs.clear();
+		binpack::ContentAccumulator<uint32_t> output;
+		{
+			ScopedTimer t( "- Collect output" );
+			canvases.collect( output );
+		}
+
+		for( auto &item : output.getContents() ){
+			auto bin = item.coord.z;
+			if( bin >= renderAtlases.size() )
+				renderAtlases.resize( bin + 1 );
+
+			renderAtlases[bin].emplace_back( item.content, item.coord, item.size );
 		}
 	}
 
@@ -349,12 +428,16 @@ SdfText::TextureAtlas::TextureAtlas( FT_Face face, const SdfText::Format &format
 	size_t surfacePixelInc = surface.getPixelInc();
 	size_t surfaceRowBytes = surface.getRowBytes();
 
+	// CW (TTF) vs CCW (OTF) - SDF needs to be inverted if font is OTF
+	bool invertSdf = ( std::string( "OTTO" ) == std::string( reinterpret_cast<const char *>( face->stream->base ) ) );
+
 	// Render the atlases
 	const double sdfRange = static_cast<double>( format.getSdfRange() );
 	const double sdfAngle = static_cast<double>( format.getSdfAngle() );
-	msdfgen::Bitmap<msdfgen::FloatRGB> sdfBitmap( mSdfBitmapSize.x, mSdfBitmapSize.y );
 	uint32_t currentTextureIndex = 0;
 	for( size_t atlasIndex = 0; atlasIndex < renderAtlases.size(); ++atlasIndex ) {
+		ScopedTimer t( "Render atlas" );
+
 		const auto& renderGlyphs = renderAtlases[atlasIndex];
 		// Render atlas
 		for( const auto& renderGlyph : renderGlyphs ) {
@@ -368,9 +451,11 @@ SdfText::TextureAtlas::TextureAtlas( FT_Face face, const SdfText::Format &format
 
 				// Generate SDF
 				vec2 originOffset = mGlyphInfo[renderGlyph.glyphIndex].mOriginOffset;
+				ivec2 glyphSize = renderGlyph.size - format.getSdfTileSpacing();
 				float tx = mSdfPadding.x;
 				float ty = std::fabs( originOffset.y ) + mSdfPadding.y;
 				// mSdfScale will get applied to <tx, ty> by msdfgen
+				msdfgen::Bitmap<msdfgen::FloatRGB> sdfBitmap( glyphSize.x, glyphSize.y );
 				msdfgen::generateMSDF( sdfBitmap, shape, sdfRange, msdfgen::Vector2( mSdfScale.x, mSdfScale.y ), msdfgen::Vector2( tx, ty ) );
 
 				// Invert the SDF if needed, but only for glyphs that have contours to render. 
@@ -389,9 +474,9 @@ SdfText::TextureAtlas::TextureAtlas( FT_Face face, const SdfText::Format &format
 				// Copy bitmap
 				size_t dstOffset = ( renderGlyph.position.y * surfaceRowBytes ) + ( renderGlyph.position.x * surfacePixelInc );
 				uint8_t *dst = surfaceData + dstOffset;
-				for( int n = 0; n < mSdfBitmapSize.y; ++n ) {
+				for( int n = 0; n < glyphSize.y; ++n ) {
 					Color8u *dstPixel = reinterpret_cast<Color8u *>( dst );
-					for( int m = 0; m < mSdfBitmapSize.x; ++m ) {
+					for( int m = 0; m < glyphSize.x; ++m ) {
 						msdfgen::FloatRGB &src = sdfBitmap( m, n );
 						Color srcPixel = Color( src.r, src.g, src.b );
 						*dstPixel = srcPixel;
@@ -402,7 +487,7 @@ SdfText::TextureAtlas::TextureAtlas( FT_Face face, const SdfText::Format &format
 
 				// Tex coords
 				mGlyphInfo[renderGlyph.glyphIndex].mTextureIndex = currentTextureIndex;
-				mGlyphInfo[renderGlyph.glyphIndex].mTexCoords = Area( 0, 0, mSdfBitmapSize.x, mSdfBitmapSize.y ) + renderGlyph.position;
+				mGlyphInfo[renderGlyph.glyphIndex].mTexCoords = Area( 0, 0, glyphSize.x, glyphSize.y ) + renderGlyph.position;
 			}
 		}
 		// Create texture
@@ -411,10 +496,10 @@ SdfText::TextureAtlas::TextureAtlas( FT_Face face, const SdfText::Format &format
 		++currentTextureIndex;
 
 		// Debug output
-		//writeImage( "sdfText_" + std::to_string( atlasIndex ) + ".png", surface );
+		writeImage( "sdfText_" + std::to_string( atlasIndex ) + ".png", surface );
 
 		// Reset
-		ip::fill( &surface, Color8u( 0, 0, 0 ) );		
+		ip::fill( &surface, Color8u( 0, 0, 0 ) );
 	}
 }
 
@@ -1345,7 +1430,7 @@ SdfText::Font::Glyph SdfText::Font::getGlyphIndex( size_t idx ) const
 	return static_cast<SdfText::Font::Glyph>( idx );
 }
 
-SdfText::Font::Glyph SdfText::Font::getGlyphChar( char utf8Char ) const
+SdfText::Font::Glyph SdfText::Font::getGlyphChar( char utf8Char ) const // PAUL: use Char instead of char to add support for multibyte characters
 {
 	FT_UInt glyphIndex = FT_Get_Char_Index( mData->getFace(), static_cast<FT_ULong>( utf8Char ) );
 	return static_cast<SdfText::Font::Glyph>( glyphIndex );
@@ -1400,7 +1485,7 @@ SdfText::SdfText( const SdfText::Font &font, const Format &format, const std::st
 
 		// Build char/glyph maps
 		std::vector<SdfText::Font::Glyph> glyphIndices;
-		for( const auto &ch : utf32Chars ) {
+		for( /*const auto &ch : utf32Chars*/ char32_t ch = 32; ch < 65536; ++ch ) {
 			// Lookup glyph index based on char
 			SdfText::Font::Glyph glyphIndex = static_cast<SdfText::Font::Glyph>( FT_Get_Char_Index( face, static_cast<FT_ULong>( ch ) ) );
 
@@ -1420,7 +1505,7 @@ SdfText::SdfText( const SdfText::Font &font, const Format &format, const std::st
 		}
 
 		// Get texture atlas - will build if necessary
-		mTextureAtlases = SdfTextManager::instance()->getTextureAtlas( face, format, utf8Chars, glyphIndices );
+		mTextureAtlases = SdfTextManager::instance()->getTextureAtlas( face, format, utf8Chars, glyphIndices ); // PAUL: passing utf8Chars and glyphIndices should not be necessary
 
 		// Build glyph metrics
 		{
@@ -1571,8 +1656,8 @@ void SdfText::save(const ci::DataTargetRef& target, const SdfTextRef& sdfText)
 		os->writeLittle( sdfText->mTextureAtlases->mSdfPadding.x );
 		os->writeLittle( sdfText->mTextureAtlases->mSdfPadding.y );
 		// SDF bitmap size
-		os->writeLittle( sdfText->mTextureAtlases->mSdfBitmapSize.x );
-		os->writeLittle( sdfText->mTextureAtlases->mSdfBitmapSize.y );
+		//os->writeLittle( sdfText->mTextureAtlases->mSdfBitmapSize.x );
+		//os->writeLittle( sdfText->mTextureAtlases->mSdfBitmapSize.y );
 		// Max glyph size
 		os->writeLittle( sdfText->mTextureAtlases->mMaxGlyphSize.x );
 		os->writeLittle( sdfText->mTextureAtlases->mMaxGlyphSize.y );
@@ -1755,8 +1840,8 @@ SdfTextRef SdfText::load( const ci::DataSourceRef& source, float size )
 		is->readLittle( &(textureAtlases->mSdfPadding.x) );
 		is->readLittle( &(textureAtlases->mSdfPadding.y) );
 		// SDF bitmap size
-		is->readLittle( &(textureAtlases->mSdfBitmapSize.x) );
-		is->readLittle( &(textureAtlases->mSdfBitmapSize.y) );
+		//is->readLittle( &(textureAtlases->mSdfBitmapSize.x) );
+		//is->readLittle( &(textureAtlases->mSdfBitmapSize.y) );
 		// Max glyph size
 		is->readLittle( &(textureAtlases->mMaxGlyphSize.x) );
 		is->readLittle( &(textureAtlases->mMaxGlyphSize.y) );
@@ -1823,7 +1908,7 @@ void SdfText::drawGlyphs( const SdfText::Font::GlyphMeasuresList &glyphMeasures,
 	const auto& glyphMap = mTextureAtlases->mGlyphInfo;
 	const auto& sdfScale = mTextureAtlases->mSdfScale;
 	const auto& sdfPadding = mTextureAtlases->mSdfPadding;
-	const auto& sdfBitmapSize = mTextureAtlases->mSdfBitmapSize;
+	//const auto& sdfBitmapSize = mTextureAtlases->mSdfBitmapSize;
 
 	if( textures.empty() ) {
 		return;
@@ -1971,7 +2056,7 @@ void SdfText::drawGlyphs( const SdfText::Font::GlyphMeasuresList &glyphMeasures,
 	const auto& textures = mTextureAtlases->mTextures;
 	const auto& glyphMap = mTextureAtlases->mGlyphInfo;
 	const auto& sdfPadding = mTextureAtlases->mSdfPadding;
-	const auto& sdfBitmapSize = mTextureAtlases->mSdfBitmapSize;
+	//const auto& sdfBitmapSize = mTextureAtlases->mSdfBitmapSize;
 
 	if( textures.empty() ) {
 		return;
@@ -2157,7 +2242,7 @@ std::vector<std::pair<uint8_t, std::vector<SdfText::CharPlacement>>> SdfText::pl
 	const auto& glyphMap = mTextureAtlases->mGlyphInfo;
 	const auto& sdfScale = mTextureAtlases->mSdfScale;
 	const auto& sdfPadding = mTextureAtlases->mSdfPadding;
-	const auto& sdfBitmapSize = mTextureAtlases->mSdfBitmapSize;
+	//const auto& sdfBitmapSize = mTextureAtlases->mSdfBitmapSize;
 
 	vec2 baseline = baselineIn;
 
@@ -2247,7 +2332,7 @@ vec2 SdfText::measureString( const std::string &str, const DrawOptions &options 
 		if( glyphInfoIt != mGlyphMap.end() ) {
 			result += glyphInfoIt->second.mOriginOffset + vec2( glyphInfoIt->second.mTexCoords.getSize() );
 		}
-		return result * mFont.getSize() / 32.0f;
+		return result;
 	}
 	else {
 		return vec2();
