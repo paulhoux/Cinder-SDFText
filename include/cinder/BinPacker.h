@@ -1,200 +1,51 @@
 /*
- Copyright (c) 2015, The Barbarian Group
- All rights reserved.
+Copyright (c) 2016, The Barbarian Group
+All rights reserved.
 
- Portions of this code (C) Paul Houx
- All rights reserved.
+Portions of this code (C) Paul Houx
+All rights reserved.
 
- Redistribution and use in source and binary forms, with or without
- modification, are permitted provided that
- the following conditions are met:
+Portions of this code (C) Christopher Stones <chris.stones@zoho.com>
+All rights reserved.
 
- * Redistributions of source code must retain the above copyright notice, this
- list of conditions and
- the following disclaimer.
- * Redistributions in binary form must reproduce the above copyright notice,
- this list of conditions and
- the following disclaimer in the documentation and/or other materials provided
- with the distribution.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that
+the following conditions are met:
 
- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- ANY EXPRESS OR IMPLIED
- WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- MERCHANTABILITY AND FITNESS FOR A
- PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- CONTRIBUTORS BE LIABLE FOR
- ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- (INCLUDING, BUT NOT LIMITED
- TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- OR BUSINESS INTERRUPTION)
- HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- LIABILITY, OR TORT (INCLUDING
- NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- EVEN IF ADVISED OF THE
- POSSIBILITY OF SUCH DAMAGE.
- */
+* Redistributions of source code must retain the above copyright notice, this
+list of conditions and
+the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and
+the following disclaimer in the documentation and/or other materials provided
+with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+*/
 
 #pragma once
 
-#include "cinder/Area.h"
+#include "cinder/Cinder.h"
+#include "cinder/Vector.h"
 
 #include <list>
-#include <map>
 #include <vector>
 
 namespace cinder {
-
-class PackedArea;
-
-class BinPackerBase {
-  public:
-	BinPackerBase() {}
-	virtual ~BinPackerBase() {}
-
-	//! Sets the width and height of the bin.
-	virtual void setSize( uint32_t width, uint32_t height ) { setSize( ivec2( width, height ) ); }
-	//! Sets the width and height of the bin.
-	virtual void setSize( const ivec2 &size ) { mSize = size; }
-
-	//! Takes a list of \a areas, packs them and returns a list of packed areas.
-	virtual std::vector<PackedArea> insert( const std::vector<Area> &areas ) = 0;
-	//! Packs the \a area and returns it as a PackedArea.
-	virtual PackedArea insert( const Area &area );
-
-	//! Returns the size of the bin.
-	ivec2 getSize() const { return mSize; }
-	//! Returns the width of the bin.
-	int32_t getWidth() const { return mSize.x; }
-	//! Returns the height of the bin.
-	int32_t getHeight() const { return mSize.y; }
-
-	//! Clears the internal data structures.
-	virtual void clear();
-
-  protected:
-	//! Returns \c true if \a a fits inside \a b.
-	bool fits( const PackedArea &a, const PackedArea &b ) const;
-	//! Splits \a area into 2 new areas.
-	PackedArea split( PackedArea *area, int32_t width, int32_t height ) const;
-	//! Packs the area. Returns \c true if successful.
-	bool pack( PackedArea *area );
-
-  protected:
-	ivec2 mSize;
-
-	//! List of available space to fill.
-	std::vector<PackedArea> mAvailable;
-};
-
-class BinPacker : public BinPackerBase {
-  public:
-	BinPacker() { clear(); }
-	~BinPacker() {}
-
-	//! Sets the width and height of the bin.
-	BinPacker &size( uint32_t width, uint32_t height )
-	{
-		setSize( width, height );
-		return *this;
-	}
-	//! Sets the width and height of the bin.
-	BinPacker &size( const ivec2 &size )
-	{
-		setSize( size );
-		return *this;
-	}
-
-	//! Adds \a areas to the already packed areas, packs them (online) and returns
-	//! a list of packed areas.
-	std::vector<PackedArea> insert( const std::vector<Area> &areas ) override;
-};
-
-class MultiBinPacker : public BinPackerBase {
-  public:
-	MultiBinPacker() { clear(); }
-	~MultiBinPacker() {}
-
-	//! Sets the width and height of the bin.
-	MultiBinPacker &size( uint32_t width, uint32_t height )
-	{
-		setSize( width, height );
-		return *this;
-	}
-	//! Sets the width and height of the bin.
-	MultiBinPacker &size( const ivec2 &size )
-	{
-		setSize( size );
-		return *this;
-	}
-
-	//! Adds \a areas to the already packed areas, packs them (online) and returns
-	//! a list of packed areas.
-	std::vector<PackedArea> insert( const std::vector<Area> &areas ) override;
-
-	//! Clears the internal data structures.
-	void clear() override;
-
-  private:
-	uint32_t mBin;
-};
-
-class PackedArea : public Area {
-  public:
-	PackedArea()
-	    : mOrder( 0 )
-	    , mBin( 0 )
-	{
-	}
-	PackedArea( const ivec2 &UL, const ivec2 &LR, uint32_t order = 0 )
-	    : Area( UL, LR )
-	    , mOrder( order )
-	    , mBin( 0 )
-	{
-	}
-	PackedArea( int32_t aX1, int32_t aY1, int32_t aX2, int32_t aY2, uint32_t order = 0 )
-	    : Area( aX1, aY1, aX2, aY2 )
-	    , mOrder( order )
-	    , mBin( 0 )
-	{
-	}
-	explicit PackedArea( const RectT<float> &r, uint32_t order = 0 )
-	    : Area( r )
-	    , mOrder( order )
-	    , mBin( 0 )
-	{
-	}
-	explicit PackedArea( const Area &area, uint32_t order = 0 )
-	    : Area( area )
-	    , mOrder( order )
-	    , mBin( 0 )
-	{
-	}
-
-	//! Returns the bin number in which this area is packed.
-	uint32_t getBin() const { return mBin; }
-
-	//! Allow sorting by area.
-	bool operator<( const PackedArea &rhs ) { return calcArea() < rhs.calcArea(); }
-
-	//! Allow sorting by area.
-	static bool sortByArea( const PackedArea &a, const PackedArea &b ) { return a.calcArea() < b.calcArea(); }
-
-	//! Allow sorting by order.
-	static bool sortByOrder( const PackedArea &a, const PackedArea &b ) { return a.mOrder < b.mOrder; }
-
-  private:
-	friend class MultiBinPacker;
-
-	uint32_t mOrder;
-	uint32_t mBin;
-};
-
-class BinPackerTooSmallExc : public std::exception {
-  public:
-	virtual const char *what() const throw() { return "Bin size is too small to fit all areas."; }
-};
-
-// -----------------------------------------------------------------------------------------------
 
 namespace binpack {
 
@@ -344,15 +195,16 @@ class Content {
 template <typename T>
 class Canvas {
   public:
-	using CanvasVector = std::vector<Canvas<T>>;
-	using ContentVector = std::vector<Content<T>>;
+	using CanvasVector = std::vector<Canvas<T>, std::allocator<Canvas<T>>>;
+	using ContentVector = std::vector<Content<T>, std::allocator<Content<T>>>;
 
-	// Canvas()
-	//    : Canvas( 1024, 1024 )
-	//{
-	//}
+	Canvas()
+	    : Canvas( 0, 0 )
+	{
+	}
 	Canvas( uint16_t w, uint16_t h )
-	    : width( w )
+	    : index( 0 )
+	    , width( w )
 	    , height( h )
 	    , dirty( false )
 	{
@@ -424,8 +276,6 @@ class Canvas {
 			}
 		}
 
-		// TODO: add support for rotation.
-
 		return false;
 	}
 
@@ -438,8 +288,14 @@ class Canvas {
 		dirty = false;
 	}
 
+	typename ContentVector::const_iterator begin() const { return contents.front(); }
+	typename ContentVector::const_iterator end() const { return contents.back(); }
+
+	uint16_t getIndex() const { return index; }
 	uint16_t getWidth() const { return width; }
 	uint16_t getHeight() const { return height; }
+
+	void setIndex( uint16_t i ) { index = i; }
 
   private:
 	bool fits( const Content<T> &item )
@@ -448,7 +304,7 @@ class Canvas {
 			return false;
 		if( ( item.coord.y + item.size.height ) > height )
 			return false;
-		for( auto &content : contents ) {
+		for( auto &content : contents ) { // TODO: optimize this check! No need for brute forcing it.
 			if( item.intersects( content ) )
 				return false;
 		}
@@ -467,6 +323,7 @@ class Canvas {
 	static bool sortCoords( const Coord &a, const Coord &b ) { return ( a.x * a.x + a.y * a.y ) < ( b.x * b.x + b.y * b.y ); }
 
   private:
+	uint16_t      index;
 	uint16_t      width;
 	uint16_t      height;
 	Coord::List   coords;
@@ -512,6 +369,9 @@ class ContentAccumulator {
 
 	void sort() { std::sort( contents.begin(), contents.end(), &ContentAccumulator<T>::sortByWidthThenHeight ); }
 
+	bool   empty() const { return contents.empty(); }
+	size_t size() const { return contents.size(); }
+
   private:
 	static bool sortByWidthThenHeight( const Content<T> &a, const Content<T> &b )
 	{
@@ -529,12 +389,10 @@ template <typename T>
 class CanvasArray {
   public:
 	using CanvasVector = std::vector<Canvas<T>>;
+	using CanvasConstVector = std::vector<const Canvas<T>>;
 	using ContentVector = std::vector<Content<T>>;
+	using ContentConstVector = std::vector<const Content<T>>;
 
-	// CanvasArray()
-	//    : CanvasArray( 1024, 1024 )
-	//{
-	//}
 	CanvasArray( uint16_t w, uint16_t h )
 	    : width( w )
 	    , height( h )
@@ -547,12 +405,18 @@ class CanvasArray {
 		assert( !canvases.empty() );
 		width = canvases[0].width;
 		height = canvases[0].height;
+
+		uint16_t index = 0;
+		for( auto &canvas : canvases )
+			canvas.setIndex( index++ );
 	}
 
+	//! Attempts to place contents onto existing canvases. Returns the content that did not fit.
 	bool place( const ContentVector &contents, ContentVector &remainder ) { return Canvas<T>::place( canvases, contents, remainder ); }
 
 	//! Places contents onto existing canvases, adding canvases if necessary.
-	bool place( const ContentVector &contents ) {
+	bool place( const ContentVector &contents )
+	{
 		ContentVector items = contents;
 
 		ContentVector remainder;
@@ -560,16 +424,20 @@ class CanvasArray {
 
 		// Use existing canvases.
 		for( auto &canvas : canvases ) {
-			if( canvas.place( items, remainder ) )
+			if( canvas.place( items, remainder ) ) {
+				items.clear();
 				break;
+			}
 
 			std::swap( items, remainder );
 			remainder.clear();
 		}
 
 		// Add new canvases until done.
+		uint16_t index = canvases.size();
 		while( !items.empty() ) {
 			canvases.emplace_back( width, height );
+			canvases.back().setIndex( index++ );
 			canvases.back().place( items, remainder );
 
 			std::swap( items, remainder );
@@ -601,6 +469,9 @@ class CanvasArray {
 
 	bool   empty() const { return canvases.empty(); }
 	size_t size() const { return canvases.size(); }
+
+	typename CanvasVector::const_iterator begin() const { return canvases.begin(); }
+	typename CanvasVector::const_iterator end() const { return canvases.end(); }
 
 	uint16_t getWidth() const { return width; }
 	uint16_t getHeight() const { return height; }

@@ -88,7 +88,7 @@ public:
 		const ivec2&	getSdfTileSpacing() const { return mSdfTileSpacing; }
 
 	private:
-		ivec2			mTextureSize = ivec2( 1024 );
+		ivec2			mTextureSize = ivec2( 512 ); // Best bin-packing speed and memory usage.
 		vec2			mSdfScale = vec2( 2.0f );
 		ivec2			mSdfPadding = vec2( 2.0f );
 		float			mSdfRange = 4.0f;
