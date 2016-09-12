@@ -52,29 +52,29 @@ namespace binpack {
 class Size {
   public:
 	Size( uint16_t w, uint16_t h )
-	    : width( w )
-	    , height( h )
+	    : w( w )
+	    , h( h )
 	{
 	}
 	Size( const ci::ivec2 &sz )
-	    : width( sz.x )
-	    , height( sz.y )
+	    : w( sz.x )
+	    , h( sz.y )
 	{
 	}
 
 	bool operator<( const Size &other ) const
 	{
-		if( width != other.width )
-			return width < other.width;
+		if( w != other.w )
+			return w < other.w;
 		else
-			return height < other.height;
+			return h < other.h;
 	}
 
-	operator ci::ivec2() const { return ci::ivec2( width, height ); }
+	operator ci::ivec2() const { return ci::ivec2( w, h ); }
 
   public:
-	uint16_t width;
-	uint16_t height;
+	uint16_t w;
+	uint16_t h;
 };
 
 class Coord {
@@ -161,7 +161,7 @@ class Content {
 
 	Content( const T &content, const Size &size, const Coord &origin = Coord(), bool rotated = false )
 	    : mOrigin( origin )
-		, mExtent( origin.x + size.width, origin.y + size.height )
+		, mExtent( origin.x + size.w, origin.y + size.h )
 		, mSize( size )
 	    , mContent( content )
 	    , mRotated( rotated )
@@ -179,17 +179,17 @@ class Content {
 	void move( const Coord &coord )
 	{
 		mOrigin = coord;
-		mExtent.x = coord.x + mSize.width;
-		mExtent.y = coord.y + mSize.height;
+		mExtent.x = coord.x + mSize.w;
+		mExtent.y = coord.y + mSize.h;
 	}
 
 	void rotate()
 	{
 		mRotated = !mRotated;
 
-		std::swap( mSize.width, mSize.height );
-		mExtent.x = mOrigin.x + mSize.width;
-		mExtent.y = mOrigin.y + mSize.height;
+		std::swap( mSize.w, mSize.h );
+		mExtent.x = mOrigin.x + mSize.w;
+		mExtent.y = mOrigin.y + mSize.h;
 	}
 
 	bool intersects( const Content<T> &other ) const
@@ -211,20 +211,20 @@ class Content {
 template <typename T>
 class Canvas {
   public:
-	using CanvasVector = std::vector<Canvas<T>, std::allocator<Canvas<T>>>;
-	using ContentVector = std::vector<Content<T>, std::allocator<Content<T>>>;
+	using CanvasVector = std::vector<Canvas<T>>;
+	using ContentVector = std::vector<Content<T>>;
 
 	Canvas()
 	    : Canvas( 0, 0 )
 	{
 	}
 	Canvas( uint16_t w, uint16_t h )
-	    : index( 0 )
-	    , width( w )
-	    , height( h )
-	    , dirty( false )
+	    : mIndex( 0 )
+	    , mWidth( w )
+	    , mHeight( h )
+	    , mIsDirty( false )
 	{
-		coords.resize( 1 );
+		mCoords.resize( 1 );
 	}
 
 	static bool place( CanvasVector &canvases, const ContentVector &contents, ContentVector &remainder )
@@ -253,17 +253,17 @@ class Canvas {
 		return place( canvases, contents );
 	}
 
-	const ContentVector &getContents() const { return contents; }
+	const ContentVector &getContents() const { return mContents; }
 
-	size_t size() const { return contents.size(); }
-	bool   empty() const { return contents.empty(); }
+	size_t size() const { return mContents.size(); }
+	bool   empty() const { return mContents.empty(); }
 
 	bool operator<( const Canvas &other )
 	{
-		if( width != other.width )
-			return width < other.width;
+		if( mWidth != other.mWidth )
+			return mWidth < other.mWidth;
 		else
-			return height < other.height;
+			return mHeight < other.mHeight;
 	}
 
 	bool place( const ContentVector &contents, ContentVector &remainder )
@@ -283,11 +283,11 @@ class Canvas {
 		sort();
 
 		Content<T> item = content;
-		for( auto itr = std::begin( coords ); itr != std::end( coords ); ++itr ) {
+		for( auto itr = std::begin( mCoords ); itr != std::end( mCoords ); ++itr ) {
 			item.move( *itr );
 			if( fits( item ) ) {
 				use( item );
-				coords.erase( itr );
+				mCoords.erase( itr );
 				return true;
 			}
 		}
@@ -297,28 +297,28 @@ class Canvas {
 
 	void sort()
 	{
-		if( !dirty )
+		if( !mIsDirty )
 			return;
 
-		coords.sort( &Canvas::sortCoords );
-		dirty = false;
+		mCoords.sort( &Canvas::sortCoords );
+		mIsDirty = false;
 	}
 
-	typename ContentVector::const_iterator begin() const { return contents.front(); }
-	typename ContentVector::const_iterator end() const { return contents.back(); }
+	typename ContentVector::const_iterator begin() const { return mContents.front(); }
+	typename ContentVector::const_iterator end() const { return mContents.back(); }
 
-	uint16_t getIndex() const { return index; }
-	uint16_t getWidth() const { return width; }
-	uint16_t getHeight() const { return height; }
+	uint16_t getIndex() const { return mIndex; }
+	uint16_t getWidth() const { return mWidth; }
+	uint16_t getHeight() const { return mHeight; }
 
-	void setIndex( uint16_t i ) { index = i; }
+	void setIndex( uint16_t i ) { mIndex = i; }
 
   private:
 	bool fits( const Content<T> &item )
 	{
-		if( item.extent().x > width || item.extent().y > height )
+		if( item.extent().x > mWidth || item.extent().y > mHeight )
 			return false;
-		for( auto &content : contents ) { // TODO: optimize this check! No need for brute forcing it.
+		for( auto &content : mContents ) { // TODO: optimize this check! No need for brute forcing it.
 			if( item.intersects( content ) )
 				return false;
 		}
@@ -327,22 +327,22 @@ class Canvas {
 
 	bool use( const Content<T> &item )
 	{
-		coords.emplace_front( item.extent().x, item.origin().y );
-		coords.emplace_back( item.origin().x, item.extent().y );
-		contents.emplace_back( item );
-		dirty = true;
+		mCoords.emplace_front( item.extent().x, item.origin().y );
+		mCoords.emplace_back( item.origin().x, item.extent().y );
+		mContents.emplace_back( item );
+		mIsDirty = true;
 		return true;
 	}
 
 	static bool sortCoords( const Coord &a, const Coord &b ) { return ( a.x * a.x + a.y * a.y ) < ( b.x * b.x + b.y * b.y ); }
 
   private:
-	uint16_t      index;
-	uint16_t      width;
-	uint16_t      height;
-	Coord::List   coords;
-	ContentVector contents;
-	bool          dirty;
+	uint16_t      mIndex;
+	uint16_t      mWidth;
+	uint16_t      mHeight;
+	Coord::List   mCoords;
+	ContentVector mContents;
+	bool          mIsDirty;
 };
 
 template <typename T>
@@ -352,18 +352,18 @@ class ContentAccumulator {
 
 	ContentAccumulator() {}
 
-	const ContentVector &getContents() const { return contents; }
-	ContentVector &      getContents() { return contents; }
+	const ContentVector &getContents() const { return mContents; }
+	ContentVector &      getContents() { return mContents; }
 
 	ContentAccumulator<T> &operator+=( const Content<T> &other )
 	{
-		contents.push_back( other );
+		mContents.push_back( other );
 		return *this;
 	}
 
 	ContentAccumulator<T> &operator+=( const ContentVector &other )
 	{
-		contents.insert( contents.end(), other.begin(), other.end() );
+		mContents.insert( mContents.end(), other.begin(), other.end() );
 		return *this;
 	}
 
@@ -381,22 +381,22 @@ class ContentAccumulator {
 		return temp;
 	}
 
-	void sort() { std::sort( contents.begin(), contents.end(), &ContentAccumulator<T>::sortByWidthThenHeight ); }
+	void sort() { std::sort( mContents.begin(), mContents.end(), &ContentAccumulator<T>::sortByWidthThenHeight ); }
 
-	bool   empty() const { return contents.empty(); }
-	size_t size() const { return contents.size(); }
+	bool   empty() const { return mContents.empty(); }
+	size_t size() const { return mContents.size(); }
 
   private:
 	static bool sortByWidthThenHeight( const Content<T> &a, const Content<T> &b )
 	{
-		if( a.size().width != b.size().width )
-			return a.size().width > b.size().width;
+		if( a.size().w != b.size().w )
+			return a.size().w > b.size().w;
 		else
-			return a.size().height > b.size().height;
+			return a.size().h > b.size().h;
 	}
 
   private:
-	ContentVector contents;
+	ContentVector mContents;
 };
 
 template <typename T>
@@ -408,25 +408,25 @@ class CanvasArray {
 	using ContentConstVector = std::vector<const Content<T>>;
 
 	CanvasArray( uint16_t w, uint16_t h )
-	    : width( w )
-	    , height( h )
+	    : mWidth( w )
+	    , mHeight( h )
 	{
-		canvases.emplace_back( width, height );
+		mCanvases.emplace_back( mWidth, mHeight );
 	}
 	CanvasArray( const CanvasVector &canvases )
-	    : canvases( canvases )
+	    : mCanvases( canvases )
 	{
-		assert( !canvases.empty() );
-		width = canvases[0].width;
-		height = canvases[0].height;
+		assert( !mCanvases.empty() );
+		mWidth = mCanvases[0].mWidth;
+		mHeight = mCanvases[0].mHeight;
 
 		uint16_t index = 0;
-		for( auto &canvas : canvases )
+		for( auto &canvas : mCanvases )
 			canvas.setIndex( index++ );
 	}
 
 	//! Attempts to place contents onto existing canvases. Returns the content that did not fit.
-	bool place( const ContentVector &contents, ContentVector &remainder ) { return Canvas<T>::place( canvases, contents, remainder ); }
+	bool place( const ContentVector &contents, ContentVector &remainder ) { return Canvas<T>::place( mCanvases, contents, remainder ); }
 
 	//! Places contents onto existing canvases, adding canvases if necessary.
 	bool place( const ContentVector &contents )
@@ -437,7 +437,7 @@ class CanvasArray {
 		remainder.reserve( contents.size() );
 
 		// Use existing canvases.
-		for( auto &canvas : canvases ) {
+		for( auto &canvas : mCanvases ) {
 			if( canvas.place( items, remainder ) ) {
 				items.clear();
 				break;
@@ -448,11 +448,11 @@ class CanvasArray {
 		}
 
 		// Add new canvases until done.
-		uint16_t index = canvases.size();
+		uint16_t index = mCanvases.size();
 		while( !items.empty() ) {
-			canvases.emplace_back( width, height );
-			canvases.back().setIndex( index++ );
-			canvases.back().place( items, remainder );
+			mCanvases.emplace_back( mWidth, mHeight );
+			mCanvases.back().setIndex( index++ );
+			mCanvases.back().place( items, remainder );
 
 			std::swap( items, remainder );
 			remainder.clear();
@@ -469,11 +469,11 @@ class CanvasArray {
 	{
 		uint16_t z = 0;
 
-		for( auto &canvas : canvases ) {
+		for( auto &canvas : mCanvases ) {
 			for( auto &content : canvas.getContents() ) {
-				contents.emplace_back( content );
-				contents.back().origin.z = z;
-				contents.back().extent.z = z;
+				mContents.emplace_back( content );
+				mContents.back().origin.z = z;
+				mContents.back().extent.z = z;
 			}
 			z++;
 		}
@@ -482,19 +482,19 @@ class CanvasArray {
 
 	bool collect( ContentAccumulator<T> &content ) const { return collect( content.getContents() ); }
 
-	bool   empty() const { return canvases.empty(); }
-	size_t size() const { return canvases.size(); }
+	bool   empty() const { return mCanvases.empty(); }
+	size_t size() const { return mCanvases.size(); }
 
-	typename CanvasVector::const_iterator begin() const { return canvases.begin(); }
-	typename CanvasVector::const_iterator end() const { return canvases.end(); }
+	typename CanvasVector::const_iterator begin() const { return mCanvases.begin(); }
+	typename CanvasVector::const_iterator end() const { return mCanvases.end(); }
 
-	uint16_t getWidth() const { return width; }
-	uint16_t getHeight() const { return height; }
+	uint16_t getWidth() const { return mWidth; }
+	uint16_t getHeight() const { return mHeight; }
 
   private:
-	uint16_t     width;
-	uint16_t     height;
-	CanvasVector canvases;
+	uint16_t     mWidth;
+	uint16_t     mHeight;
+	CanvasVector mCanvases;
 };
 
 } // namespace binpack
