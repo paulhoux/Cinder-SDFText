@@ -317,6 +317,9 @@ SdfText::TextureAtlas::TextureAtlas( FT_Face face, const SdfText::Format &format
 		}
 	}
 
+	if( canvases.size() > 64 )
+		CI_LOG_W( "Supporting all glyphs requires more than 64 textures. Please consider using a subset." );
+
 	// Generate glyphs.
 	mTextures.clear();
 	for( auto &canvas : canvases ) {
@@ -362,7 +365,7 @@ gl::Texture2dRef SdfText::TextureAtlas::generateTexture( const binpack::Canvas<u
 		CI_LOG_V( "Glyph " << glyph.content << " of canvas " << canvas.getIndex() );
 
 		bool loaded = false;
-		loaded = msdfgen::loadGlyph( shape, mFace, glyph.content );
+		loaded = msdfgen::loadGlyph( shape, mFace, glyph.content() );
 
 		if( loaded ) {
 			shape.inverseYAxis = true;
@@ -372,9 +375,9 @@ gl::Texture2dRef SdfText::TextureAtlas::generateTexture( const binpack::Canvas<u
 			msdfgen::edgeColoringSimple( shape, sdfAngle );
 
 			// Generate SDF
-			vec2 originOffset = mGlyphInfo[glyph.content].mOriginOffset;
+			vec2 originOffset = mGlyphInfo[glyph.content()].mOriginOffset;
 
-			ivec2 glyphSize = (ivec2)glyph.size - mFormat.getSdfTileSpacing();
+			ivec2 glyphSize = (ivec2)glyph.size() - mFormat.getSdfTileSpacing();
 			float tx = (float)mFormat.getSdfPadding().x;
 			float ty = (float)std::fabs( originOffset.y ) + mFormat.getSdfPadding().y;
 			// mSdfScale will get applied to <tx, ty> by msdfgen
@@ -395,7 +398,7 @@ gl::Texture2dRef SdfText::TextureAtlas::generateTexture( const binpack::Canvas<u
 			}
 
 			// Copy bitmap
-			size_t   dstOffset = ( glyph.coord.y * surfaceRowBytes ) + ( glyph.coord.x * surfacePixelInc );
+			size_t   dstOffset = ( glyph.origin().y * surfaceRowBytes ) + ( glyph.origin().x * surfacePixelInc );
 			uint8_t *dst = surfaceData + dstOffset;
 			for( int n = 0; n < glyphSize.y; ++n ) {
 				Color8u *dstPixel = reinterpret_cast<Color8u *>( dst );
@@ -409,8 +412,8 @@ gl::Texture2dRef SdfText::TextureAtlas::generateTexture( const binpack::Canvas<u
 			}
 
 			// Tex coords.
-			mGlyphInfo[glyph.content].mTextureIndex = canvas.getIndex();
-			mGlyphInfo[glyph.content].mTexCoords = Area( 0, 0, glyphSize.x, glyphSize.y ) + glyph.coord;
+			mGlyphInfo[glyph.content()].mTextureIndex = canvas.getIndex();
+			mGlyphInfo[glyph.content()].mTexCoords = Area( 0, 0, glyphSize.x, glyphSize.y ) + glyph.origin();
 		}
 	}
 
@@ -1882,7 +1885,7 @@ void SdfText::drawGlyphs( const SdfText::Font::GlyphMeasuresList &glyphMeasures,
 			destRect -= destRect.getUpperLeft();
 			vec2 offset = vec2( 0, -( destRect.getHeight() ) );
 			// Reverse the transformation applied during SDF generation
-			float tx = sdfPadding.x;
+			float tx = (float)sdfPadding.x;
 			float ty = std::fabs( originOffset.y ) + sdfPadding.y;
 			offset += scale * sdfScale * vec2( -tx, ty );
 			// Use origin scale for horizontal offset
@@ -2188,7 +2191,7 @@ std::vector<std::pair<uint8_t, std::vector<SdfText::CharPlacement>>> SdfText::pl
 			destRect -= destRect.getUpperLeft();
 			vec2 offset = vec2( 0, -( destRect.getHeight() ) );
 			// Reverse the transformation applied during SDF generation
-			float tx = sdfPadding.x;
+			float tx = (float)sdfPadding.x;
 			float ty = std::fabs( originOffset.y ) + sdfPadding.y;
 			offset += scale * sdfScale * vec2( -tx, ty );
 			// Use origin scale for horizontal offset

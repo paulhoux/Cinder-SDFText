@@ -142,54 +142,70 @@ class Content {
 	using Vector = std::vector<class Content<T>>;
 
 	Content( const Content<T> &other )
-	    : coord( other.coord )
-	    , size( other.size )
-	    , content( other.content )
-	    , rotated( other.rotated )
+	    : mOrigin( other.mOrigin )
+		, mExtent( other.mExtent )
+		, mSize( other.mSize )
+	    , mContent( other.mContent )
+	    , mRotated( other.mRotated )
 	{
 	}
 
 	Content( const Content<T> &&other )
-	    : coord( std::move( other.coord ) )
-	    , size( std::move( other.size ) )
-	    , content( std::move( other.content ) )
-	    , rotated( std::move( other.rotated ) )
+	    : mOrigin( std::move( other.mOrigin ) )
+		, mExtent( std::move( other.mExtent ) )
+		, mSize( std::move( other.mSize ) )
+	    , mContent( std::move( other.mContent ) )
+	    , mRotated( std::move( other.mRotated ) )
 	{
 	}
 
-	Content( const T &content, const Size &size, const Coord &coord = Coord(), bool rotated = false )
-	    : coord( coord )
-	    , size( size )
-	    , content( content )
-	    , rotated( rotated )
+	Content( const T &content, const Size &size, const Coord &origin = Coord(), bool rotated = false )
+	    : mOrigin( origin )
+		, mExtent( origin.x + size.width, origin.y + size.height )
+		, mSize( size )
+	    , mContent( content )
+	    , mRotated( rotated )
 	{
+	}
+
+	const Coord &origin() const { return mOrigin; }
+	
+	const Coord &extent() const { return mExtent; }
+
+	const T& content() const { return mContent; }
+
+	const Size &size() const { return mSize; }
+	
+	void move( const Coord &coord )
+	{
+		mOrigin = coord;
+		mExtent.x = coord.x + mSize.width;
+		mExtent.y = coord.y + mSize.height;
 	}
 
 	void rotate()
 	{
-		rotated = !rotated;
-		size = Size( size.height, size.width );
+		mRotated = !mRotated;
+
+		std::swap( mSize.width, mSize.height );
+		mExtent.x = mOrigin.x + mSize.width;
+		mExtent.y = mOrigin.y + mSize.height;
 	}
 
 	bool intersects( const Content<T> &other ) const
 	{
-		if( coord.x >= other.coord.x + other.size.width )
-			return false;
-		if( other.coord.x >= coord.x + size.width )
-			return false;
-		if( coord.y >= other.coord.y + other.size.height )
-			return false;
-		if( other.coord.y >= coord.y + size.height )
+		if( mOrigin.x >= other.mExtent.x || mOrigin.y >= other.mExtent.y || other.mOrigin.x >= mExtent.x || other.mOrigin.y >= mExtent.y )
 			return false;
 
 		return true;
 	}
 
-  public:
-	Coord coord;
-	Size  size;
-	T     content;
-	bool  rotated;
+  private:
+	Coord mOrigin;
+	Coord mExtent;
+	Size  mSize;
+	T     mContent;
+	bool  mRotated;
 };
 
 template <typename T>
@@ -268,7 +284,7 @@ class Canvas {
 
 		Content<T> item = content;
 		for( auto itr = std::begin( coords ); itr != std::end( coords ); ++itr ) {
-			item.coord = *itr;
+			item.move( *itr );
 			if( fits( item ) ) {
 				use( item );
 				coords.erase( itr );
@@ -300,9 +316,7 @@ class Canvas {
   private:
 	bool fits( const Content<T> &item )
 	{
-		if( ( item.coord.x + item.size.width ) > width )
-			return false;
-		if( ( item.coord.y + item.size.height ) > height )
+		if( item.extent().x > width || item.extent().y > height )
 			return false;
 		for( auto &content : contents ) { // TODO: optimize this check! No need for brute forcing it.
 			if( item.intersects( content ) )
@@ -313,8 +327,8 @@ class Canvas {
 
 	bool use( const Content<T> &item )
 	{
-		coords.emplace_front( item.coord.x + item.size.width, item.coord.y );
-		coords.emplace_back( item.coord.x, item.coord.y + item.size.height );
+		coords.emplace_front( item.extent().x, item.origin().y );
+		coords.emplace_back( item.origin().x, item.extent().y );
 		contents.emplace_back( item );
 		dirty = true;
 		return true;
@@ -375,10 +389,10 @@ class ContentAccumulator {
   private:
 	static bool sortByWidthThenHeight( const Content<T> &a, const Content<T> &b )
 	{
-		if( a.size.width != b.size.width )
-			return a.size.width > b.size.width;
+		if( a.size().width != b.size().width )
+			return a.size().width > b.size().width;
 		else
-			return a.size.height > b.size.height;
+			return a.size().height > b.size().height;
 	}
 
   private:
@@ -458,7 +472,8 @@ class CanvasArray {
 		for( auto &canvas : canvases ) {
 			for( auto &content : canvas.getContents() ) {
 				contents.emplace_back( content );
-				contents.back().coord.z = z;
+				contents.back().origin.z = z;
+				contents.back().extent.z = z;
 			}
 			z++;
 		}
