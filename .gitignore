@@ -13,3 +13,5 @@ Release/
 .DS_Store
 project.xcworkspace/
 xcuserdata/
+/.clang-format
+/formatter.bat
