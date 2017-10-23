@@ -393,14 +393,21 @@ class SdfText {
 	//! Returns a  word-wrapped vector of glyph/placement pairs representing \a str fit inside \a fitRect, suitable for use with drawGlyphs. Useful for caching placement and optimizing batching. Mac & iOS only.
 	std::vector<std::pair<SdfText::Font::Glyph, vec2>> getGlyphPlacementsWrapped( const std::string &str, const Rectf &fitRect, const DrawOptions &options = DrawOptions() ) const;
 
+	//! Returns the font size.
+	float getSize() const { return mDetail->mFont.getSize() * mFontScale; }
+	//! Sets the font size. Note that this does not require reloading the font data and textures, it's just a scaling factor.
+	void setSize( float size ) { mFontScale = ( size / mDetail->mFont.getSize() ); }
+	//!
+	float getScale() const { return mFontScale; }
+
 	//! Returns the font the TextureFont represents
-	const SdfText::Font &getFont() const { return mFont; }
+	const SdfText::Font &getFont() const { return mDetail->mFont; }
 	//! Returns the name of the font
-	std::string getName() const { return mFont.getName(); }
-	//! Returns the ascent of the font
-	float getAscent() const { return mFont.getAscent(); }
-	//! Returns the descent of the font
-	float getDescent() const { return mFont.getDescent(); }
+	std::string getName() const { return mDetail->mFont.getName(); }
+	//! Returns the ascent of the font for the default size.
+	float getAscent() const { return mDetail->mFont.getAscent(); }
+	//! Returns the descent of the font for the default size.
+	float getDescent() const { return mDetail->mFont.getDescent(); }
 
 	//! Returns the default set of characters for a TextureFont, suitable for most English text, including some common ligatures and accented vowels.
 	//! \c "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890().?!,:;'\"&*=+-/\\|@#_[]<>%^llflfiphridsŽ‡ˆ"
@@ -409,8 +416,10 @@ class SdfText {
 	uint32_t              getNumTextures() const;
 	const gl::TextureRef &getTexture( uint32_t n ) const;
 
-	const SdfText::Font::GlyphMetricsMap &getGlyphMetrics() const { return mGlyphMetrics; }
-	const SdfText::Font::CharToGlyphMap & getCharToGlyph() const { return mCharToGlyph; }
+	//! Returns the glyph metrics for the default size.
+	const SdfText::Font::GlyphMetricsMap &getGlyphMetrics() const { return mDetail->mGlyphMetrics; }
+	//! Returns the character to glyph mapping.
+	const SdfText::Font::CharToGlyphMap &getCharToGlyph() const { return mDetail->mCharToGlyph; }
 
 	static gl::GlslProgRef defaultShader();
 
@@ -421,12 +430,21 @@ class SdfText {
 	class TextureAtlas;
 	using TextureAtlasRef = std::shared_ptr<TextureAtlas>;
 
-	SdfText::Font                  mFont;
-	Format                         mFormat;
-	TextureAtlasRef                mTextureAtlases;
-	SdfText::Font::GlyphMetricsMap mGlyphMetrics;
-	SdfText::Font::CharToGlyphMap  mCharToGlyph;
-	SdfText::Font::GlyphToCharMap  mGlyphToChar;
+	struct Detail {
+		Detail( const SdfText::Font &font )
+		    : mFont( font )
+		{
+		}
+
+		SdfText::Font                  mFont;
+		SdfText::Font::GlyphMetricsMap mGlyphMetrics;
+		SdfText::Font::CharToGlyphMap  mCharToGlyph;
+		SdfText::Font::GlyphToCharMap  mGlyphToChar;
+	};
+	std::shared_ptr<Detail> mDetail;
+	Format                  mFormat;
+	TextureAtlasRef         mTextureAtlases;
+	float                   mFontScale = 1.0f;
 
 	Rectf measureStringImpl( const std::string &str, bool wrapped, const Rectf &fitRect, const DrawOptions &options ) const;
 };
