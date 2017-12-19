@@ -208,6 +208,11 @@ public:
 		using GlyphMeasuresList = std::vector<std::pair<SdfText::Font::Glyph, SdfText::Font::GlyphMeasure>>;
 		using GlyphInfoMap = std::unordered_map<SdfText::Font::Glyph, SdfText::Font::GlyphInfo>;
 
+        using GlyphPair = uint64_t;
+        using GlyphKerningMap = std::unordered_map<GlyphPair, vec2>;
+
+	    static GlyphPair makeGlyphPair( uint32_t left, uint32_t right ) { return ( GlyphPair( left ) << 32 ) + GlyphPair( right ); }
+
 		Font() {}
 		Font( const std::string &name, float size );
 		Font( DataSourceRef dataSource, float size );
@@ -331,6 +336,7 @@ public:
 
 	const SdfText::Font::GlyphMetricsMap&	getGlyphMetrics() const { return mGlyphMetrics; }
 	const SdfText::Font::CharToGlyphMap&	getCharToGlyph() const { return mCharToGlyph; }
+    const SdfText::Font::GlyphKerningMap&   getGlyphKerningPairs() const { return mGlyphKerning; }
 
 	static gl::GlslProgRef	defaultShader();
 
@@ -347,6 +353,7 @@ private:
 	SdfText::Font::GlyphMetricsMap		mGlyphMetrics;
 	SdfText::Font::CharToGlyphMap		mCharToGlyph;
 	SdfText::Font::GlyphToCharMap		mGlyphToChar;
+    SdfText::Font::GlyphKerningMap      mGlyphKerning;
 
 	Rectf	measureStringImpl( const std::string &str, bool wrapped, const Rectf &fitRect, const DrawOptions &options ) const;
 };
