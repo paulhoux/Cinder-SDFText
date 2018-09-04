@@ -6,10 +6,17 @@
 *.VC.db
 *.opensdf
 *.vcxproj.user
+*.vs
 Debug/
 Release/
+Debug_ANGLE/
+Release_ANGLE/
+ipch/
 
 # OS X cruft
 .DS_Store
 project.xcworkspace/
 xcuserdata/
+
+# cahed sdf 
+*.sdft
