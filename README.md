@@ -2,7 +2,7 @@
 Based on [msdfgen](https://github.com/Chlumsky/msdfgen) by Viktor Chlumský.
 
 ## Building for Windows
-1. Build lib first in ```vc2013```
+1. Build lib first in ```vc2013``` or ```vc2015```
 1. Build samples in ```samples```
 
 ## Building for OSX and iOS

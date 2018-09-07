@@ -351,4 +351,57 @@ private:
 	Rectf	measureStringImpl( const std::string &str, bool wrapped, const Rectf &fitRect, const DrawOptions &options ) const;
 };
 
+// =================================================================================================
+// SdfTextBox
+// =================================================================================================
+class SdfTextBox {
+public:
+	enum { GROW = 0 };
+
+	SdfTextBox( const SdfText *sdfText ) : mSdfText( sdfText ), mAlign( SdfText::LEFT ), mSize( GROW, GROW ), mTracking( 0 ), mLastLineJustify( false ), mJustifySpaceCount( 0 ), mInvalid( true ), mLigate( true ) {}
+
+	SdfTextBox&				size( ivec2 sz ) { setSize( sz ); return *this; }
+	SdfTextBox&				size( int width, int height ) { setSize( ivec2( width, height ) ); return *this; }
+	ivec2					getSize() const { return mSize; }
+	void					setSize( ivec2 sz ) { mSize = sz; mInvalid = true; }
+
+	SdfTextBox&				text( const std::string &t ) { setText( t ); return *this; }
+	const std::string&		getText() const { return mText; }
+	void					setText( const std::string &t ) { mText = t; mInvalid = true; }
+	void					appendText( const std::string &t ) { mText += t; mInvalid = true; }
+
+	SdfTextBox&				tracking( float tracking ) { setTracking( tracking ); return *this; }
+	float					getTracking() const { return mTracking; }
+	void					setTracking( float t ) { mTracking = t; }
+
+	SdfTextBox&				ligate( bool ligateText = true ) { setLigate( ligateText ); return *this; }
+	bool					getLigate() const { return mLigate; }
+	void					setLigate( bool ligateText ) { mLigate = ligateText; }
+
+	SdfTextBox&				alignment( SdfText::Alignment align ) { setAlignment( align ); return *this; }
+	SdfText::Alignment		getAlignment() const { return mAlign; }
+	void					setAlignment( SdfText::Alignment align ) { mAlign = align; mInvalid = true; }
+
+	SdfTextBox&				lastLineJustify( bool lastLineJustify = false ) { setJustify( lastLineJustify ); return *this; }
+	bool					getLastLineJustify() const { return mLastLineJustify; mInvalid = true; }
+	void					setJustify( bool lastLineJustify ) { mLastLineJustify = lastLineJustify; }
+
+	SdfTextBox&				justifySpaceCount( int justifySpaceCount = 0 ) { setJustifySpaceCount( justifySpaceCount ); return *this; }
+	bool					getJustifySpaceCount() const { return mJustifySpaceCount; mInvalid = true; }
+	void					setJustifySpaceCount( int justifySpaceCount ) { mJustifySpaceCount = justifySpaceCount; }
+
+	std::vector<std::string>			calculateLineBreaks() const;
+	SdfText::Font::GlyphMeasuresList	measureGlyphs( const SdfText::DrawOptions& drawOptions ) const;
+
+private:
+	const SdfText		*mSdfText = nullptr;
+	SdfText::Alignment	mAlign;
+	ivec2				mSize;
+	std::string			mText;
+	float				mTracking;
+	bool				mLigate;
+	bool                mLastLineJustify;
+	int                 mJustifySpaceCount;
+	mutable bool		mInvalid;
+};
 }} // namespace cinder::gl

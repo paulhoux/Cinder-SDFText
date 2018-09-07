@@ -304,7 +304,6 @@ SdfText::TextureAtlas::TextureAtlas( FT_Face face, const SdfText::Format &format
 			// Max ascent, descent
 			mMaxAscent = std::max( mMaxAscent, static_cast<float>( t ) );
 			mMaxDescent = std::max( mMaxAscent, static_cast<float>( std::fabs( b ) ) );
-			//CI_LOG_I( (char)ch << " : " << mGlyphInfo[glyphIndex].mOriginOffset );
 		}	
 	}
 
@@ -497,50 +496,6 @@ private:
 	friend class SdfText;
 	friend class SdfText::FontData;
 	friend bool SdfTextFontManager_destroyStaticInstance();
-};
-
-// =================================================================================================
-// SdfTextBox
-// =================================================================================================
-class SdfTextBox {
-public:
-	enum { GROW = 0 };
-	
-	SdfTextBox( const SdfText *sdfText ) : mSdfText( sdfText ), mAlign( SdfText::LEFT ), mSize( GROW, GROW ), mTracking( 0 ), mInvalid( true ), mLigate( true ) {}
-
-	SdfTextBox&				size( ivec2 sz ) { setSize( sz ); return *this; }
-	SdfTextBox&				size( int width, int height ) { setSize( ivec2( width, height ) ); return *this; }
-	ivec2					getSize() const { return mSize; }
-	void					setSize( ivec2 sz ) { mSize = sz; mInvalid = true; }
-
-	SdfTextBox&				text( const std::string &t ) { setText( t ); return *this; }
-	const std::string&		getText() const { return mText; }
-	void					setText( const std::string &t ) { mText = t; mInvalid = true; }
-	void					appendText( const std::string &t ) { mText += t; mInvalid = true; }
-
-	SdfTextBox&				tracking( float tracking ) { setTracking( tracking ); return *this; }
-	float					getTracking() const { return mTracking; }
-	void					setTracking( float t ) { mTracking = t; }
-
-	SdfTextBox&				ligate( bool ligateText = true ) { setLigate( ligateText ); return *this; }
-	bool					getLigate() const { return mLigate; }
-	void					setLigate( bool ligateText ) { mLigate = ligateText; }
-
-	SdfTextBox&				alignment( SdfText::Alignment align ) { setAlignment( align ); return *this; }
-	SdfText::Alignment		getAlignment() const { return mAlign; }
-	void					setAlignment( SdfText::Alignment align ) { mAlign = align; mInvalid = true; }
-
-	std::vector<std::string>			calculateLineBreaks() const;
-	SdfText::Font::GlyphMeasuresList	measureGlyphs( const SdfText::DrawOptions& drawOptions ) const;
-
-private:
-	const SdfText		*mSdfText = nullptr;
-	SdfText::Alignment	mAlign;
-	ivec2				mSize;
-	std::string			mText;
-	float				mTracking;
-	bool				mLigate;
-	mutable bool		mInvalid;
 };
 
 // =================================================================================================
@@ -1276,14 +1231,19 @@ SdfText::Font::GlyphMeasuresList SdfTextBox::measureGlyphs( const SdfText::DrawO
 		// Apply alignment as a post-process.
 		bool aligned = false;
 		if( drawOptions.getJustify() ) {
-			const bool isLastLine = nextUtf32Chars.empty();
-			if( spaceCount > 0 && !isLastLine ) {
-				float space = ( mSize.x - ( pen.x + advance.x - adjust.x ) );
+			bool isLastLine = nextUtf32Chars.empty();
+			if ( mLastLineJustify ) {
+				isLastLine = false;
+			}
+			if( spaceCount > mJustifySpaceCount && !isLastLine ) {
+				float space = ( mSize.x - ( pen.x - adjust.x ) );
 				float offset = 0.0f;
+
 				for( size_t i = index; i < result.size(); ++i ) {
 					result[i].second.x += offset;
 					// 75% of the extra spacing comes from adjusting every character.
-					offset += ( 0.75f * space ) / glyphCount;
+					offset += ( 0.75f * space ) / ( glyphCount );
+
 					if( result[i].first == spaceIndex ) {
 						// 25% of the extra spacing comes from adjusting white space characters only.
 						offset += ( 0.25f * space ) / spaceCount;
